@@ -1,1 +1,1 @@
-# sistema-de-control-colectivos
+# SimColectivos
