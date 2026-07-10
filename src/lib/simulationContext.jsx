@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 const LINES = [
-  { id: '60', name: 'Línea 60', distanceKm: 15, timeMin: 9, maxVelocity: 120 },
-  { id: '152', name: 'Línea 152', distanceKm: 20, timeMin: 12, maxVelocity: 120 },
-  { id: '10', name: 'Línea 10', distanceKm: 12, timeMin: 7, maxVelocity: 130 },
-];
+  { id: '60', name: 'Línea 60', distanceKm: 15, velocity: 60, maxVelocity: 60 },
+  { id: '152', name: 'Línea 152', distanceKm: 20, velocity: 55, maxVelocity: 55 },
+  { id: '10', name: 'Línea 10', distanceKm: 12, velocity: 65, maxVelocity: 65 },
+].map(l => ({ ...l, timeMin: (l.distanceKm / l.velocity) * 60 }));
 
 export const SITUATION_CONFIG = {
   green: { message: 'Vamos bien con el tiempo', color: '#22C55E' },
@@ -28,11 +28,17 @@ const MAX_DELAY = 180;
 const FINE_PER_30S = 500;
 const PAX_WAIT_SCALED = 2;
 
+function computePlannedTime(line, stops) {
+  const totalStops = stops.length + 1;
+  const boardingTime = 5 * PAX_WAIT_SCALED * totalStops;
+  return line.timeMin * 60 + boardingTime;
+}
+
 const initialState = {
   status: 'idle',
   line: null,
   stops: [],
-  timeScale: 1,
+  timeScale: 5,
   kv: 0.8,
   simTime: 0,
   position: 0,
@@ -57,7 +63,7 @@ const initialState = {
 function computeTick(s, dt_real, dt_sim) {
   const logs = [];
   const newSimTime = s.simTime + dt_sim;
-  const plannedTime = s.line.timeMin * 60;
+  const plannedTime = computePlannedTime(s.line, s.stops);
   const totalStops = s.stops.length + 1;
   const timePerStop = plannedTime / totalStops;
   const maxVel = s.line.maxVelocity;
@@ -140,16 +146,21 @@ function computeTick(s, dt_real, dt_sim) {
   const newVelocity = Math.max(0, velocity + actualDeltaV);
   const newAcceleration = dt_sim > 0 ? (actualDeltaV / dt_sim) / 3.6 : 0;
 
+  // --- POSITION UPDATE ---
+  const newPos = position + (newVelocity * dt_sim / 3600);
+
   // --- SPEED LIMIT CHECK ---
   if (newVelocity > maxVel * 1.05 && !hasFailure) {
     const failureType = Math.random() < 0.5 ? 'engine_failure' : 'technical_problems';
     const label = failureType === 'engine_failure' ? 'FALLA EN EL MOTOR' : 'PROBLEMAS TÉCNICOS';
-    events = [...events, { id: Date.now() + Math.random(), type: failureType, label, active: true, permanent: true }];
-    logs.push({ message: `⚠️ Exceso de velocidad (${newVelocity.toFixed(0)} km/h): ${label}`, type: 'error', time: newSimTime, id: Date.now() + Math.random() });
+    const remainingStops = totalStops - currentStopIndex;
+    const failureFine = remainingStops * Math.ceil(MAX_DELAY / 30) * FINE_PER_30S;
+    logs.push({ message: `⚠️ Exceso de velocidad (${newVelocity.toFixed(0)} km/h): ${label} — Multa: $${failureFine} (${remainingStops} parada(s) restante(s))`, type: 'error', time: newSimTime, id: Date.now() + Math.random() });
+    return {
+      state: { ...s, status: 'finished', endReason: `${label} — Multa: $${failureFine}`, simTime: newSimTime, position: newPos, velocity: 0, acceleration: 0, fine: fine + failureFine, events: [...events, { id: Date.now() + Math.random(), type: failureType, label, active: true, permanent: true }], currentStopIndex, isAtStop, stopWaitRemaining, stopPassengers, fineExemptRemaining, passengerPerturbation, visitedStops, situation: 'red', redTimer },
+      logs, chartPoint: null,
+    };
   }
-
-  // --- POSITION UPDATE ---
-  const newPos = position + (newVelocity * dt_sim / 3600);
 
   // --- RESOLVE EVENTS ---
   events = events.map(ev => {
@@ -261,9 +272,10 @@ export function SimulationProvider({ children }) {
   const start = useCallback(() => {
     setSim(prev => {
       if (!prev.line || prev.stops.length < 3) return prev;
-      addLog(`▶️ Simulación iniciada — ${prev.line.name} (${prev.line.distanceKm} km, ${prev.line.timeMin} min)`, 'info', 0);
+      const initThrottle = Math.min(100, Math.round((prev.line.velocity / (prev.line.maxVelocity * 1.3)) * 100));
+      addLog(`▶️ Simulación iniciada — ${prev.line.name} (${prev.line.distanceKm} km, ${prev.line.timeMin.toFixed(0)} min, escala ×${prev.timeScale})`, 'info', 0);
       addLog(`🚏 ${prev.stops.length + 1} paradas totales (incl. destino)`, 'info', 0);
-      return { ...prev, status: 'running', simTime: 0, position: 0, velocity: 0, acceleration: 0, throttle: 50, totalDistance: prev.line.distanceKm, fine: 0, situation: 'green', redTimer: 0, endReason: null, currentStopIndex: 0, isAtStop: false, stopWaitRemaining: 0, stopPassengers: 0, visitedStops: [], fineExemptRemaining: 0, passengerPerturbation: { active: false, stopsRemaining: 0 }, events: [] };
+      return { ...prev, status: 'running', simTime: 0, position: 0, velocity: 0, acceleration: 0, throttle: initThrottle, totalDistance: prev.line.distanceKm, fine: 0, situation: 'green', redTimer: 0, endReason: null, currentStopIndex: 0, isAtStop: false, stopWaitRemaining: 0, stopPassengers: 0, visitedStops: [], fineExemptRemaining: 0, passengerPerturbation: { active: false, stopsRemaining: 0 }, events: [] };
     });
     setLog([]);
     setChartData([]);
@@ -272,16 +284,25 @@ export function SimulationProvider({ children }) {
 
   const pause = useCallback(() => { setSim(prev => ({ ...prev, status: 'paused' })); addLog('⏸️ Simulación pausada', 'info'); }, [addLog]);
   const resume = useCallback(() => { setSim(prev => ({ ...prev, status: 'running' })); addLog('▶️ Simulación reanudada', 'info'); }, [addLog]);
-  const reset = useCallback(() => { setSim(initialState); setLog([]); setChartData([]); tickCount.current = 0; }, []);
+  const reset = useCallback(() => { setSim({ ...initialState, timeScale: simRef.current.timeScale, kv: simRef.current.kv }); setLog([]); setChartData([]); tickCount.current = 0; }, []);
   const accelerate = useCallback(() => { setSim(prev => ({ ...prev, throttle: Math.min(100, prev.throttle + 10) })); }, []);
   const brake = useCallback(() => { setSim(prev => ({ ...prev, throttle: Math.max(0, prev.throttle - 10) })); }, []);
   const setTimeScale = useCallback((ts) => { setSim(prev => ({ ...prev, timeScale: ts })); }, []);
   const setKv = useCallback((v) => { setSim(prev => ({ ...prev, kv: v })); }, []);
   const setThrottle = useCallback((v) => { setSim(prev => ({ ...prev, throttle: Math.max(0, Math.min(100, v)) })); }, []);
 
-  const addStop = useCallback((km) => {
-    setSim(prev => prev.status !== 'idle' ? prev : ({ ...prev, stops: [...prev.stops, km].sort((a, b) => a - b) }));
-    addLog(`🚏 Parada agregada en km ${km}`, 'info', 0);
+  const addStops = useCallback((count) => {
+    setSim(prev => {
+      if (prev.status !== 'idle' || !prev.line) return prev;
+      const newCount = prev.stops.length + count;
+      const dist = prev.line.distanceKm;
+      const newStops = [];
+      for (let i = 1; i <= newCount; i++) {
+        newStops.push(dist * i / (newCount + 1));
+      }
+      addLog(`🚏 ${count} parada(s) agregada(s) — total: ${newCount} (distribuidas equitativamente)`, 'info', 0);
+      return { ...prev, stops: newStops };
+    });
   }, [addLog]);
 
   const removeStop = useCallback((km) => {
@@ -314,8 +335,19 @@ export function SimulationProvider({ children }) {
     setSim(prev => {
       if (prev.status !== 'running') return prev;
       const label = type === 'engine_failure' ? 'FALLA EN EL MOTOR' : 'PROBLEMAS TÉCNICOS';
-      addLog(`⚠️ ${label} — Velocidad a 0 (irreversible)`, 'error');
-      return { ...prev, events: [...prev.events, { id: Date.now() + Math.random(), type, label, active: true, permanent: true }] };
+      const totalStops = prev.stops.length + 1;
+      const remainingStops = totalStops - prev.currentStopIndex;
+      const failureFine = remainingStops * Math.ceil(MAX_DELAY / 30) * FINE_PER_30S;
+      addLog(`⚠️ ${label} — Multa: $${failureFine} (${remainingStops} parada(s) restante(s))`, 'error');
+      return {
+        ...prev,
+        status: 'finished',
+        endReason: `${label} — Multa: $${failureFine}`,
+        fine: prev.fine + failureFine,
+        velocity: 0,
+        acceleration: 0,
+        events: [...prev.events, { id: Date.now() + Math.random(), type, label, active: true, permanent: true }],
+      };
     });
   }, [addLog]);
 
@@ -336,7 +368,7 @@ export function SimulationProvider({ children }) {
 
   const derived = useMemo(() => {
     if (!sim.line) return { plannedTime: 0, originalDistance: 0, totalStops: 0, timePerStop: 0, nextStopKm: 0, nextStopNumber: 0, plannedArrivalNext: 0, estimatedArrivalNext: null, plannedArrivalTotal: 0, estimatedArrivalTotal: null, plannedPosition: 0, nextFineStopNumber: 0 };
-    const plannedTime = sim.line.timeMin * 60;
+    const plannedTime = computePlannedTime(sim.line, sim.stops);
     const originalDistance = sim.line.distanceKm;
     const totalStops = sim.stops.length + 1;
     const timePerStop = plannedTime / totalStops;
@@ -357,7 +389,7 @@ export function SimulationProvider({ children }) {
     ...sim, ...derived,
     panelOpen, setPanelOpen, log, chartData,
     selectLine, start, pause, resume, reset, accelerate, brake,
-    addStop, removeStop, injectPerturbation, injectFailure, injectPassengerSurge,
+    addStops, removeStop, injectPerturbation, injectFailure, injectPassengerSurge,
     setTimeScale, setKv, setThrottle,
   };
 

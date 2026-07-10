@@ -4,6 +4,7 @@ import PantallaSituacion from './colectivo/PantallaSituacion';
 import SpeedDisplay from './colectivo/SpeedDisplay';
 import ArrivalDisplay from './colectivo/ArrivalDisplay';
 import ControlButtons from './colectivo/ControlButtons';
+import StopPassengerInfo from './colectivo/StopPassengerInfo';
 import { Bus } from 'lucide-react';
 
 export default function ColectivoView() {
@@ -19,6 +20,7 @@ export default function ColectivoView() {
         <SpeedDisplay />
       </div>
       <ArrivalDisplay />
+      <StopPassengerInfo />
       <ControlButtons />
     </div>
   );
