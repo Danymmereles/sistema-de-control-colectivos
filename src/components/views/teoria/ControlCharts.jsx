@@ -3,74 +3,52 @@ import { useSimulation, formatTime } from '@/lib/simulationContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
 
 export default function ControlCharts() {
-  const { chartData, nextStopNumber, plannedArrivalTotal, nextStopKm } = useSimulation();
+  const { chartData, recoveries } = useSimulation();
 
   return (
     <div className="space-y-3">
-      <div className="bg-[#0A0A0A] border border-[#222] rounded-lg p-2 flex items-center justify-between">
-        <span className="text-xs text-gray-400">Próxima parada: <span className="text-orange-400 font-bold">P{nextStopNumber}</span> (km {nextStopKm?.toFixed(1) || '—'})</span>
-        <span className="text-xs text-gray-500">Planificado total: <span className="text-blue-400 font-mono">{formatTime(plannedArrivalTotal)}</span></span>
-      </div>
-
-      {/* Distance graph: actual vs planned */}
       <div className="bg-[#0A0A0A] border border-[#222] rounded-lg p-3">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Distancia Recorrida vs Planificada</div>
-        <ResponsiveContainer width="100%" height={150}>
-          <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Velocidad Real vs. Objetivo</div>
+        <ResponsiveContainer width="100%" height={180}>
+          <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: -15 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#222" />
             <XAxis dataKey="time" tickFormatter={formatTime} stroke="#444" fontSize="9" />
-            <YAxis stroke="#444" fontSize="9" unit=" km" />
+            <YAxis stroke="#444" fontSize="9" />
             <Tooltip labelFormatter={formatTime} contentStyle={{ background: '#1A1A1A', border: '1px solid #333', fontSize: '11px' }} />
             <Legend wrapperStyle={{ fontSize: '10px' }} />
-            <Line type="monotone" dataKey="position" name="Dist. Actual" stroke="#22C55E" strokeWidth={2} dot={false} isAnimationActive={false} />
-            <Line type="monotone" dataKey="plannedPosition" name="Dist. Planificada" stroke="#3B82F6" strokeWidth={1.5} dot={false} isAnimationActive={false} strokeDasharray="4 2" />
+            <Line type="monotone" dataKey="velocity" name="Vel. Real" stroke="#22C55E" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="targetVelocity" name="Vel. Objetivo" stroke="#3B82F6" strokeWidth={1.5} dot={false} isAnimationActive={false} strokeDasharray="4 2" />
+            {recoveries.map((r, i) => (
+              <ReferenceLine key={i} x={r.enterTime} stroke="#F97316" strokeDasharray="2 2" />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Distance error */}
       <div className="bg-[#0A0A0A] border border-[#222] rounded-lg p-3">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Error de Distancia |planificada - actual|</div>
-        <ResponsiveContainer width="100%" height={100}>
-          <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Señal de Error (e = v_obj - v_real)</div>
+        <ResponsiveContainer width="100%" height={130}>
+          <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: -15 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#222" />
             <XAxis dataKey="time" tickFormatter={formatTime} stroke="#444" fontSize="9" />
-            <YAxis stroke="#444" fontSize="9" unit=" km" />
+            <YAxis stroke="#444" fontSize="9" />
             <Tooltip labelFormatter={formatTime} contentStyle={{ background: '#1A1A1A', border: '1px solid #333', fontSize: '11px' }} />
-            <Line type="monotone" dataKey="positionError" name="Error" stroke="#EF4444" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="error" name="Error" stroke="#EF4444" strokeWidth={2} dot={false} isAnimationActive={false} />
+            <ReferenceLine y={0} stroke="#444" />
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {/* Time graph: estimated vs planned arrival */}
-      <div className="bg-[#0A0A0A] border border-[#222] rounded-lg p-3">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Tiempo Estimado de Llegada vs Planificado</div>
-        <ResponsiveContainer width="100%" height={150}>
-          <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-            <XAxis dataKey="time" tickFormatter={formatTime} stroke="#444" fontSize="9" />
-            <YAxis stroke="#444" fontSize="9" tickFormatter={formatTime} />
-            <Tooltip labelFormatter={formatTime} contentStyle={{ background: '#1A1A1A', border: '1px solid #333', fontSize: '11px' }} formatter={(v) => formatTime(v)} />
-            <Legend wrapperStyle={{ fontSize: '10px' }} />
-            <Line type="monotone" dataKey="estimatedArrival" name="ETA" stroke="#F97316" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
-            <ReferenceLine y={plannedArrivalTotal} stroke="#3B82F6" strokeDasharray="4 2" label={{ value: 'Plan', fill: '#3B82F6', fontSize: 9 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Time error */}
-      <div className="bg-[#0A0A0A] border border-[#222] rounded-lg p-3">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Error de Tiempo |estimado - planificado|</div>
-        <ResponsiveContainer width="100%" height={100}>
-          <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-            <XAxis dataKey="time" tickFormatter={formatTime} stroke="#444" fontSize="9" />
-            <YAxis stroke="#444" fontSize="9" tickFormatter={(v) => formatTime(v)} />
-            <Tooltip labelFormatter={formatTime} contentStyle={{ background: '#1A1A1A', border: '1px solid #333', fontSize: '11px' }} formatter={(v) => formatTime(v)} />
-            <Line type="monotone" dataKey="timeError" name="Error" stroke="#EF4444" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {recoveries.length > 0 && (
+        <div className="bg-[#0A0A0A] border border-[#222] rounded-lg p-3">
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Análisis de Recuperación de Desvíos</div>
+          {recoveries.map((r, i) => (
+            <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-[#1A1A1A] last:border-0">
+              <span className="text-orange-400 font-medium">Desvío #{i + 1}</span>
+              <span className="text-gray-500 font-mono">{formatTime(r.enterTime)} → {formatTime(r.exitTime)}</span>
+              <span className="text-green-400 font-mono font-bold">{r.recoveryTime.toFixed(0)}s</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

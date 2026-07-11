@@ -14,7 +14,7 @@ export default function PantallaSituacion() {
   }
 
   if (status === 'finished') {
-    const isSuccess = endReason?.includes('éxito') || endReason?.includes('Destino');
+    const isSuccess = endReason?.includes('éxito');
     return (
       <div className={`rounded-lg bg-[#0A0A0A] border p-4 min-h-[140px] flex flex-col items-center justify-center ${isSuccess ? 'border-green-900' : 'border-red-900'}`}>
         <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Pantalla de Situación</div>
@@ -32,7 +32,7 @@ export default function PantallaSituacion() {
       <div className="w-3 h-3 rounded-full mb-2 animate-pulse" style={{ backgroundColor: cfg.color }} />
       <p className="text-base sm:text-lg font-semibold text-center px-2" style={{ color: cfg.color }}>{cfg.message}</p>
       {situation === 'red' && (
-        <p className="text-xs text-gray-400 mt-1">Corte en {Math.max(0, 10 - redTimer).toFixed(0)}s</p>
+        <p className="text-xs text-gray-400 mt-1">Corte en {formatTime(Math.max(0, 120 - redTimer))}</p>
       )}
     </div>
   );
