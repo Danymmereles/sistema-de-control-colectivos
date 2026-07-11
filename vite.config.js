@@ -15,5 +15,6 @@ export default defineConfig({
       visualEditAgent: true
     }),
     react(),
-  ]
+  ],
+  base: 'sistema-de-control-colectivos'
 });
