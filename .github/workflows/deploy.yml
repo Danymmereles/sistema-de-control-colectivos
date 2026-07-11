@@ -3,7 +3,7 @@ name: Deploy Vite to GitHub Pages
 on:
   push:
     branches:
-      - SimColectivos
+      - prueba_git_pages
 
 permissions:
   contents: read
