@@ -53,7 +53,7 @@ export default function PanelControl() {
             </button>
           </div>
           <div className="flex gap-1 mt-2">
-            {[1, 2, 5].map(sc => (
+            {[1, 2, 5, 10, 20].map(sc => (
               <button key={sc} onClick={() => setTimeScale(sc)} disabled={isIdle}
                 className={`flex-1 py-1.5 rounded text-xs font-mono transition-colors ${timeScale === sc ? 'bg-blue-900/40 text-blue-400 border border-blue-700/50' : 'bg-[#1A1A1A] text-gray-400 border border-[#2A2A2A] hover:border-[#444]'} disabled:opacity-40`}>
                 ×{sc}
