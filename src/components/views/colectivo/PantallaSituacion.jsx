@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSimulation, SITUATION_CONFIG, formatTime } from '@/lib/simulationContext';
+import { useSimulation, SITUATION_CONFIG } from '@/lib/simulationContext';
 
 export default function PantallaSituacion() {
   const { situation, redTimer, status, endReason } = useSimulation();

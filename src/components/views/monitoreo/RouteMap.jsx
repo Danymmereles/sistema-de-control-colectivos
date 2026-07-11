@@ -1,6 +1,5 @@
 import React from 'react';
 import { useSimulation } from '@/lib/simulationContext';
-import { MapPin } from 'lucide-react';
 
 export default function RouteMap() {
   const { position, line, stops, totalDistance, currentStopIndex, fineExemptRemaining } = useSimulation();
